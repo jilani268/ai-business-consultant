@@ -1,0 +1,10 @@
+Industry Financial Dataset for Project Testing,,,,,
+"Contains only raw Month, Revenue, and 5 distinct Expense columns as requested.",,,,,
+,,,,,
+Month,Revenue,Salaries & Wages,Marketing & Ads,Infrastructure & Cloud,Office & Peripherals
+Jan-26,"4,50,000","1,80,000","45,000","32,000","12,000"
+Feb-26,"4,85,000","1,80,000","50,000","34,000","15,000"
+Mar-26,"5,20,000","1,85,000","55,000","35,000","11,000"
+Apr-26,"4,95,000","1,85,000","42,000","36,000","14,000"
+May-26,"5,40,000","1,90,000","60,000","38,000","25,000"
+Jun-26,"5,80,000","1,90,000","65,000","41,000","13,000"
