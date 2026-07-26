@@ -962,6 +962,45 @@ else:
     )
 
 df = st.session_state.get("business_data")
+st.markdown("""
+<style>
+
+/* All normal text */
+.stApp{
+    color:#b3b3b3;
+}
+
+/* Titles */
+h1,h2,h3,h4,h5,h6{
+    color:#ffffff !important;
+}
+
+/* Markdown and text */
+p, label, span{
+    color:#b3b3b3 !important;
+}
+
+/* Metric Cards */
+div[data-testid="stMetric"]{
+    background:#1a1a1a;
+    border:2px solid transparent;   /* Invisible border initially */
+    border-radius:12px;
+    padding:15px;
+    transition:transform 0.25s ease,
+               box-shadow 0.25s ease,
+               border-color 0.25s ease;
+}
+
+/* Hover Effect */
+div[data-testid="stMetric"]:hover{
+    transform:translateY(-6px);
+    border-color:#00ff88;
+    box-shadow:0 8px 25px rgba(0,255,140,0.25);
+}
+
+</style>
+""", unsafe_allow_html=True)
+
 
 if page == "Dashboard":
     if "df" in st.session_state:
@@ -1054,7 +1093,7 @@ if page == "Dashboard":
         df = st.session_state["df"]
         
         if "Month" in df.columns and "Revenue" in df.columns:
-            st.bar_chart(df.set_index("Month")["Revenue"])
+            st.bar_chart(df.set_index("Month")["Revenue"], color:#00ff88)
         else:
             st.write("DEBUG - condition failed")
 
@@ -1064,7 +1103,7 @@ if page == "Dashboard":
         
 
         if "Month" in df.columns and "Expenses" in df.columns:
-            st.line_chart(df.set_index("Month")["Expenses"])
+            st.line_chart(df.set_index("Month")["Expenses"], color:#00ff88)
     
     st.subheader("Revenue vs Expenses")
     if "df" in st.session_state:
@@ -1075,14 +1114,18 @@ if page == "Dashboard":
            fig = go.Figure()
  
            fig.add_trace(
-               go.Bar(name = "Revenue", x=df["Month"], y =df["Revenue"]))
+               go.Bar(name = "Revenue", x=df["Month"], y =df["Revenue"], marker_color="#00ff88"))
            fig.add_trace(
-               go.Bar(name = "Expenses", x=df["Month"], y =df["Expenses"]))
+               go.Bar(name = "Expenses", x=df["Month"], y =df["Expenses"], marker_color = "#ff0055"))
            fig.update_layout(
                barmode = "group",
                xaxis_title="Month",
                yaxis_title="Amount",
-               legend_title="Metric"
+               legend_title="Metric",
+               paper_bgcolor="#1a1a1a",
+               plot_bgcolor="#1a1a1a",
+               font=dict(color="#b3b3b3"),
+               title_font_color="#ffffff" 
            )
            st.plotly_chart(fig, use_container_width=True)
 
