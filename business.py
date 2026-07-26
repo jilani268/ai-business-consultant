@@ -1093,7 +1093,7 @@ if page == "Dashboard":
         df = st.session_state["df"]
         
         if "Month" in df.columns and "Revenue" in df.columns:
-            st.bar_chart(df.set_index("Month")["Revenue"], color:#00ff88;)
+            st.bar_chart(df.set_index("Month")["Revenue"], color:"#00ff88")
         else:
             st.write("DEBUG - condition failed")
 
@@ -1103,7 +1103,7 @@ if page == "Dashboard":
         
 
         if "Month" in df.columns and "Expenses" in df.columns:
-            st.line_chart(df.set_index("Month")["Expenses"], color:#00ff88;)
+            st.line_chart(df.set_index("Month")["Expenses"], color:"#00ff88")
     
     st.subheader("Revenue vs Expenses")
     if "df" in st.session_state:
@@ -1114,9 +1114,9 @@ if page == "Dashboard":
            fig = go.Figure()
  
            fig.add_trace(
-               go.Bar(name = "Revenue", x=df["Month"], y =df["Revenue"], marker_color="#00ff88";))
+               go.Bar(name = "Revenue", x=df["Month"], y =df["Revenue"], marker_color="#00ff88"))
            fig.add_trace(
-               go.Bar(name = "Expenses", x=df["Month"], y =df["Expenses"], marker_color = "#ff0055";))
+               go.Bar(name = "Expenses", x=df["Month"], y =df["Expenses"], marker_color = "#ff0055"))
            fig.update_layout(
                barmode = "group",
                xaxis_title="Month",
