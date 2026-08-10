@@ -1093,7 +1093,7 @@ if page == "Dashboard":
         df = st.session_state["df"]
         
         if "Month" in df.columns and "Revenue" in df.columns:
-            st.bar_chart(df.set_index("Month")["Revenue"], color:"#00ff88")
+            st.bar_chart(df.set_index("Month")["Revenue"], color="#00ff88")
         else:
             st.write("DEBUG - condition failed")
 
@@ -1103,7 +1103,7 @@ if page == "Dashboard":
         
 
         if "Month" in df.columns and "Expenses" in df.columns:
-            st.line_chart(df.set_index("Month")["Expenses"], color:"#00ff88")
+            st.line_chart(df.set_index("Month")["Expenses"], color="#00ff88")
     
     st.subheader("Revenue vs Expenses")
     if "df" in st.session_state:
