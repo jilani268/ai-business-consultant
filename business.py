@@ -87,6 +87,53 @@ def init_db():
         )
     """)
 
+  c.execute("""
+        CREATE TABLE IF NOT EXISTS product_price_list (
+            product_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            cogs REAL NOT NULL DEFAULT 0,
+            selling_price REAL DEFAULT 0,
+            unit TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        )
+    """)
+
+
+  c.execute("""
+        CREATE TABLE IF NOT EXISTS flexible_product_price_list (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL UNIQUE,
+            price_data TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
+        )
+    """)
+
+
+  c.execute("""
+        CREATE TABLE IF NOT EXISTS transaction_products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transaction_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            product_name TEXT NOT NULL,
+            quantity REAL NOT NULL DEFAULT 0,
+            unit TEXT,
+            buying_price REAL NOT NULL DEFAULT 0,
+            selling_price REAL DEFAULT 0,
+            cogs REAL NOT NULL DEFAULT 0,
+            sales REAL NOT NULL DEFAULT 0,
+            profit REAL NOT NULL DEFAULT 0,
+            FOREIGN KEY (transaction_id)
+                REFERENCES daily_business(id)
+                ON DELETE CASCADE,
+            FOREIGN KEY (user_id)
+                REFERENCES users(user_id)
+                ON DELETE CASCADE
+        )
+    """)
+
+
   conn.commit()
   conn.close()
   os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -370,35 +417,338 @@ def save_daily_business(user_id, entry_date, sales, cogs, other_expenses):
 
 
 def load_daily_business(user_id):
-  conn = get_connection()
-  c = conn.cursor()
-  c.execute("""
-    CREATE TABLE IF NOT EXISTS daily_business (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER,
-        entry_date TEXT,
-        sales REAL,
-        cogs REAL,
-        other_expenses REAL,
-        gross_profit REAL,
-        net_profit REAL,
-        profit_margin REAL
-    )
-    """)
-  conn.commit()
+    conn = get_connection()
 
-  df = pd.read_sql_query(
-      "SELECT * FROM daily_business WHERE user_id=? ORDER BY entry_date",
-      conn,
-      params=(user_id,),
-  )
-  conn.close()
-  return df
+    try:
+        df = pd.read_sql_query(
+            """
+            SELECT
+                entry_date,
+                sales,
+                cogs,
+                other_expenses,
+                gross_profit,
+                net_profit,
+                profit_margin
+            FROM daily_business
+            WHERE user_id = ?
+            ORDER BY entry_date DESC
+            """,
+            conn,
+            params=(user_id,)
+        )
+
+        return df
+
+    except Exception:
+        return pd.DataFrame()
+
+    finally:
+        conn.close()
+
+def load_product_price_list(user_id):
+    conn = get_connection()
+
+    df = pd.read_sql_query(
+        """
+        SELECT
+            product_name AS "Product Name",
+            cogs AS "Buying Price (COGS)",
+            selling_price AS "Selling Price",
+            unit AS "Unit"
+        FROM product_price_list
+        WHERE user_id = ?
+        ORDER BY product_name
+        """,
+        conn,
+        params=(user_id,),
+    )
+
+    conn.close()
+
+    return df
+
+
+def save_product_price_list(user_id, df):
+    conn = get_connection()
+    c = conn.cursor()
+
+    try:
+        with conn:
+            # Remove the user's old list
+            c.execute(
+                "DELETE FROM product_price_list WHERE user_id = ?",
+                (user_id,),
+            )
+
+            # Save the edited list
+            for _, row in df.iterrows():
+
+                product_name = str(
+                    row.get("Product Name", "")
+                ).strip()
+
+                if not product_name:
+                    continue
+
+                cogs = float(
+                    row.get("Buying Price (COGS)", 0) or 0
+                )
+
+                selling_price = float(
+                    row.get("Selling Price", 0) or 0
+                )
+
+                unit = str(
+                    row.get("Unit", "")
+                ).strip()
+
+                c.execute(
+                    """
+                    INSERT INTO product_price_list
+                    (
+                        user_id,
+                        product_name,
+                        cogs,
+                        selling_price,
+                        unit
+                    )
+                    VALUES (?, ?, ?, ?, ?)
+                    """,
+                    (
+                        user_id,
+                        product_name,
+                        cogs,
+                        selling_price,
+                        unit,
+                    ),
+                )
+
+        return True, "Product price list saved successfully."
+
+    except Exception as e:
+        return False, f"Error saving price list: {e}"
+
+    finally:
+        conn.close()
+
+    df = pd.read_sql_query(
+        "SELECT * FROM daily_business WHERE user_id=? ORDER BY entry_date",
+        conn,
+        params=(user_id,),
+    )
+    conn.close()
+    return df
+
+
+def save_flexible_product_price_list(user_id, df):
+    conn = get_connection()
+
+    try:
+        price_data = df.to_json(
+            orient="records"
+        )
+
+        conn.execute(
+            """
+            INSERT INTO flexible_product_price_list
+            (user_id, price_data, updated_at)
+            VALUES (?, ?, CURRENT_TIMESTAMP)
+
+            ON CONFLICT(user_id)
+            DO UPDATE SET
+                price_data = excluded.price_data,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (user_id, price_data),
+        )
+
+        conn.commit()
+
+        return True, "Product price list saved successfully."
+
+    except Exception as e:
+
+        return False, f"Error saving price list: {e}"
+
+    finally:
+        conn.close()
+
+
+def load_flexible_product_price_list(user_id):
+    conn = get_connection()
+
+    try:
+
+        result = conn.execute(
+            """
+            SELECT price_data
+            FROM flexible_product_price_list
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+
+        if result is None:
+            return pd.DataFrame()
+
+        price_data = json.loads(result[0])
+
+        return pd.DataFrame(price_data)
+
+    except Exception:
+        return pd.DataFrame()
+
+    finally:
+        conn.close()
+
+def get_product_price_details(user_id, product_name):
+    df = load_flexible_product_price_list(user_id)
+
+    if df is None or df.empty:
+        return None
+
+    # Find the product column
+    product_column = None
+
+    for col in df.columns:
+        if str(col).strip().lower() in [
+            "product",
+            "product name",
+            "product_name",
+            "item",
+            "item name",
+            "item_name"
+        ]:
+            product_column = col
+            break
+
+    # Find the buying price / COGS column
+    cogs_column = None
+
+    for col in df.columns:
+        if str(col).strip().lower() in [
+            "buying price",
+            "buying_price",
+            "purchase price",
+            "purchase_price",
+            "cost",
+            "cogs",
+            "cost price",
+            "cost_price"
+        ]:
+            cogs_column = col
+            break
+
+    # Find the unit column
+    unit_column = None
+
+    for col in df.columns:
+        if str(col).strip().lower() in [
+            "unit",
+            "units"
+        ]:
+            unit_column = col
+            break
+
+    if product_column is None or cogs_column is None:
+        return None
+
+    # Find selected product
+    matching_rows = df[
+        df[product_column].astype(str).str.strip()
+        == str(product_name).strip()
+    ]
+
+    if matching_rows.empty:
+        return None
+
+    row = matching_rows.iloc[0]
+
+    try:
+        buying_price = float(row[cogs_column])
+    except (ValueError, TypeError):
+        return None
+
+    unit = ""
+
+    if unit_column is not None:
+        unit = str(row[unit_column])
+
+    return {
+        "buying_price": buying_price,
+        "unit": unit
+    }
+
+
+def get_transaction_product_details(user_id, product_name):
+    df = load_flexible_product_price_list(user_id)
+
+    if df is None or df.empty:
+        return None
+
+    # Find product column
+    product_col = None
+    buying_col = None
+    selling_col = None
+    unit_col = None
+
+    for col in df.columns:
+        name = str(col).strip().lower()
+
+        if name in ["product", "product name", "product_name", "item", "item name"]:
+            product_col = col
+
+        elif name in ["buying price", "buying_price", "purchase price",
+                      "purchase_price", "cost", "cogs", "cost price"]:
+            buying_col = col
+
+        elif name in ["selling price", "selling_price", "sale price", "sale_price"]:
+            selling_col = col
+
+        elif name in ["unit", "units"]:
+            unit_col = col
+
+    if product_col is None or buying_col is None:
+        return None
+
+    rows = df[
+        df[product_col].astype(str).str.strip() == str(product_name).strip()
+    ]
+
+    if rows.empty:
+        return None
+
+    row = rows.iloc[0]
+
+    try:
+        buying_price = float(row[buying_col])
+    except:
+        buying_price = 0.0
+
+    selling_price = None
+
+    if selling_col is not None:
+        try:
+            selling_price = float(row[selling_col])
+        except:
+            selling_price = None
+
+    unit = ""
+
+    if unit_col is not None:
+        unit = str(row[unit_col])
+
+    return {
+        "buying_price": buying_price,
+        "selling_price": selling_price,
+        "unit": unit
+    }
 
 
 def generate_monthly_summary(df):
-  if df.empty:
-    return None
+  if df is None or df.empty:
+      return None
 
   summary = pd.DataFrame({
       "Month": [
@@ -1508,16 +1858,136 @@ elif page == "Business Profile":
       st.rerun()
 
 elif page == "Financial Overview":
+
   st.title("Financial Overview")
+
 
   st.subheader("Enter Today's Business Data")
 
   entry_date = st.date_input("Date", date.today())
-  sales = st.number_input("Today's Total Sales (₹)", min_value=0.0, step=100.0)
-  cogs = st.number_input("Cost of Goods Sold (₹)", min_value=0.0, step=100.0)
-  other_expenses = st.number_input(
-      "Other Expenses (₹)", min_value=0.0, step=100.0
+
+# ============================================================
+# PRODUCT SELECTION
+# ============================================================
+
+  price_list_df = load_flexible_product_price_list(
+      st.session_state.user_id
   )
+
+  selected_product = None
+  quantity = 0.0
+  cogs = 0.0
+  buying_price = 0.0
+  selected_unit = ""
+
+  if price_list_df is not None and not price_list_df.empty:
+
+    # Find product column
+      product_column = None
+  
+      for col in price_list_df.columns:
+          if str(col).strip().lower() in [
+              "product",
+              "product name",
+              "product_name",
+              "item",
+              "item name",
+              "item_name"
+          ]:
+              product_column = col
+              break
+
+      if product_column is not None:
+
+          product_list = (
+              price_list_df[product_column]
+              .dropna()
+              .astype(str)
+              .str.strip()
+              .unique()
+              .tolist()
+          )
+
+          if product_list:
+
+              selected_product = st.selectbox(
+                  "Select Product",
+                  product_list,
+                  key="financial_product_selection"
+              )
+
+              product_details = get_product_price_details(
+                  st.session_state.user_id,
+                  selected_product
+              )
+
+              if product_details is not None:
+  
+                  buying_price = product_details["buying_price"]
+                  selected_unit = product_details["unit"]
+
+                  st.info(
+                      f"Buying Price: ₹{buying_price:,.2f} "
+                      f"per {selected_unit}"
+                  )
+
+                  quantity = st.number_input(
+                      f"Quantity ({selected_unit})",
+                      min_value=0.0,
+                      step=1.0,
+                      key="financial_product_quantity"
+                  )
+
+                  cogs = buying_price * quantity
+
+                  st.metric(
+                      "Automatically Calculated COGS",
+                      f"₹{cogs:,.2f}"
+                  )
+
+              else:
+
+                  st.warning(
+                      "Buying price could not be found for this product."
+                  )
+
+      else:
+
+          st.warning(
+              "Your price list must contain a Product or Item column."
+          )
+
+  else:
+
+      st.info(
+          "No product price list found. "
+          "You can still enter COGS manually below."
+      )
+
+      cogs = st.number_input(
+          "Cost of Goods Sold (₹)",
+          min_value=0.0,
+          step=100.0,
+          key="manual_cogs"
+      )
+
+
+# ============================================================
+# SALES AND OTHER EXPENSES
+# ============================================================
+
+  sales = st.number_input(
+      "Today's Total Sales (₹)",
+      min_value=0.0,
+      step=100.0
+  )
+
+  other_expenses = st.number_input(
+      "Other Expenses (₹)",
+      min_value=0.0,
+      step=100.0
+  )
+
 
   gross_profit = sales - cogs
   net_profit = gross_profit - other_expenses
@@ -1541,7 +2011,7 @@ elif page == "Financial Overview":
     st.subheader("Your Saved Daily Entries")
 
     daily_df = load_daily_business(st.session_state.user_id)
-    if daily_df.empty:
+    if daily_df is None or daily_df.empty:
       st.info("No entries saved yet.")
     else:
       st.dataframe(daily_df)
@@ -1746,7 +2216,130 @@ elif page == "AI Analysis":
 
 elif page == "Business Data Manager":
   st.title("Business Data Manager")
+  
+  st.subheader("📦 Product & Price List")
 
+  st.write(
+      "Upload your product or price list. "
+      "You can edit the information directly in the table."
+  )
+
+  price_list_file = st.file_uploader(
+      "Upload Product / Price List",
+      type=["csv", "xlsx"],
+      key="product_price_list_upload"
+  )
+
+# ------------------------------------------------------------
+# Load uploaded file
+# ------------------------------------------------------------
+
+  if price_list_file is not None:
+
+      try:
+
+          if price_list_file.name.lower().endswith(".csv"):
+              product_df = pd.read_csv(price_list_file)
+          else:
+              product_df = pd.read_excel(price_list_file)
+
+          product_df = product_df.dropna(
+              how="all"
+          ).reset_index(drop=True)
+
+          if product_df.empty:
+
+              st.warning(
+                  "The uploaded file does not contain any product data."
+              )
+
+          else:
+
+              st.session_state[
+                  "product_price_list"
+              ] = product_df
+
+      except Exception as e:
+
+          st.error(
+              f"Could not read the uploaded file: {e}"
+         )
+
+
+# ------------------------------------------------------------
+# Get current price list
+# ------------------------------------------------------------
+
+  if "product_price_list" in st.session_state:
+
+      current_product_df = st.session_state[
+          "product_price_list"
+      ].copy()
+
+  else:
+
+      current_product_df = load_flexible_product_price_list(
+          st.session_state.user_id
+      )
+
+      if not current_product_df.empty:
+  
+          st.session_state[
+              "product_price_list"
+          ] = current_product_df
+
+
+# ------------------------------------------------------------
+# Display editable table
+# ------------------------------------------------------------
+
+  if not current_product_df.empty:
+
+      st.success("Product price list loaded successfully.")
+
+      st.write("### ✏️ Edit Your Product List")
+
+      edited_product_df = st.data_editor(
+          current_product_df,
+          num_rows="dynamic",
+          use_container_width=True,
+          hide_index=True,
+          key="editable_product_price_list"
+      )
+
+      st.session_state[
+          "product_price_list"
+      ] = edited_product_df
+
+    # --------------------------------------------------------
+    # Save
+    # --------------------------------------------------------
+
+      if st.button(
+          "💾 Save Product Price List",
+          type="primary",
+          key="save_product_price_list_button"
+      ):
+
+          success, message = save_flexible_product_price_list(
+              st.session_state.user_id,
+              edited_product_df
+          )
+  
+          if success:
+              st.success(message)
+          else:
+              st.error(message)
+
+  else:
+
+      st.info(
+          "No product price list has been added yet. "
+          "You can upload one whenever you are ready."
+      )
+
+  st.divider()
+  
   st.write("Upload a CSV with at least 3 months of business data.")
 
   uploaded_file = st.file_uploader("Upload CSV", type=["csv", "xlsx"])
