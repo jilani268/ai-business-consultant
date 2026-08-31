@@ -14,7 +14,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import streamlit as st
 
-st.set_page_config(page_title="AI Business Consultant", layout="wide")
+st.set_page_config(page_title="AI Business Consultant & Financial Advisor", layout="wide")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "app_data.db")
