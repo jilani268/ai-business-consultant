@@ -1748,6 +1748,14 @@ elif page == "AI Marketing & Promotion":
   company = st.session_state.get("company_name", "Your Business")
   industry = st.session_state.get("industry", "Retail")
   location = st.session_state.get("location", "Local Market")
+  # Load products saved in Business Data Manager
+  user_id = st.session_state.get("user_id")
+  product_df = load_flexible_product_price_list(user_id)
+
+  if product_df is not None and not product_df.empty:
+      product_information = product_df.to_string(index=False)
+  else:
+      product_information = "No product price list uploaded."
 
   col_target, col_goal = st.columns(2)
   with col_target:
@@ -1774,6 +1782,16 @@ Create a complete marketing campaign for a local business with these details:
 - Location: {location}
 - Campaign Goal: {campaign_type}
 - Target Discount: {target_discount}%
+
+PRODUCTS AND PRICES FROM BUSINESS DATA MANAGER:
+{product_information}
+
+IMPORTANT:
+- Create marketing strategies for the actual products listed above.
+- Use the supplied product names and prices accurately.
+- Do not invent products, prices, or services.
+- If a product name is unfamiliar, use its exact name.
+- If no price list is available, say so instead of guessing.
 
 Provide a structured, easy-to-read strategy strictly covering ONLY these 3 sections:
 1. 💡 **Campaign Concepts**: The overall theme, creative angle, and branding concept for this campaign.
@@ -2626,7 +2644,7 @@ elif page == "AI Financial Advisor Chatbot":
     """
         try:
           response = client.chat.completions.create(
-              model="llama-3.3-70b-versatile",
+              model="openai/gpt-oss-120b",
               messages=[
                   {
                       "role": "system",
