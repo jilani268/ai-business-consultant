@@ -20,6 +20,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE_DIR, "app_data.db")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploaded_files")
 
+st.markdown("""
+<style>
+/* Smooth page appearance */
+.main .block-container {
+    animation: pageFadeIn 0.3s ease-in-out;
+}
+
+@keyframes pageFadeIn {
+    from {
+        opacity: 0.6;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+</style>
+""", unsafe_allow_html=True)
 
 def get_connection():
   conn = sqlite3.connect(DB_PATH)
